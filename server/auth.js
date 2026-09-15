@@ -1,80 +1,142 @@
 /**
- * Session-based auth: each staff member logs in with their own username/password
- * (hashed with scrypt — see hashPassword/verifyPassword below, never stored plain).
- * A session token is issued as an httpOnly cookie and kept in memory on the server.
+ * QR LIS — real per-user authentication.
  *
- * ROLE_VIEWS is the server-side source of truth for which nav sections a role can
- * see — sent to the client after login so it can hide buttons, but every sensitive
- * API route also checks req.user.role itself (see server/api.js). Hiding a button
- * is a UX nicety; the role check on the route is the real security boundary.
+ * - Passwords are hashed with Node's built-in crypto.scrypt (salted, no
+ *   external packages). Plaintext passwords are never stored.
+ * - A logged-in browser gets an opaque random session token in an httpOnly
+ *   cookie. The token itself is looked up in an in-memory map on the server
+ *   (sessions live for as long as the server process runs — a restart just
+ *   means everyone logs in again, same as most small internal apps).
+ * - One legacy HTTP Basic Auth check (`listenerBasicAuth`) is kept ONLY for
+ *   the HL7 listener endpoint, because that caller is a background Windows
+ *   process on the lab PC, not a browser — it can't hold a session cookie.
+ *   It keeps using QRLIS_USER/QRLIS_PASS exactly as before, so an already
+ *   configured qrlis-hl7-listener.exe does not need to change.
  */
 const crypto = require("crypto");
 
+const SESSION_COOKIE = "qrlis_sid";
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8h sliding window, refreshed on each request
+const sessions = new Map(); // token -> { userId, expires }
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
+  const hash = crypto.scryptSync(String(password), salt, 64).toString("hex");
+  return { salt, hash };
 }
 
-function verifyPassword(password, stored) {
-  if (!stored || !stored.includes(":")) return false;
-  const [salt, hash] = stored.split(":");
-  const check = crypto.scryptSync(password, salt, 64).toString("hex");
-  const a = Buffer.from(check, "hex");
-  const b = Buffer.from(hash, "hex");
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+function verifyPassword(password, salt, hash) {
+  if (!salt || !hash) return false;
+  const attempt = crypto.scryptSync(String(password), salt, 64);
+  const stored = Buffer.from(hash, "hex");
+  if (attempt.length !== stored.length) return false;
+  return crypto.timingSafeEqual(attempt, stored);
 }
-
-const ROLE_VIEWS = {
-  Admin: ["viewDashboard", "viewBooking", "viewPatient360", "viewReservations", "viewSamples", "viewPCR", "viewProcessing", "viewValidation", "viewApproval", "viewAdmin", "viewQC", "viewArchiving", "viewWarehouse", "viewReporting", "viewConnection", "viewSoon"],
-  "Lab Technician": ["viewDashboard", "viewBooking", "viewPatient360", "viewReservations", "viewSamples", "viewPCR", "viewProcessing", "viewValidation", "viewApproval", "viewQC", "viewArchiving", "viewWarehouse", "viewReporting", "viewConnection", "viewSoon"],
-  Receptionist: ["viewDashboard", "viewBooking", "viewPatient360", "viewReservations", "viewSamples", "viewSoon"],
-};
-
-const SESSIONS = new Map(); // token -> { sub, name, role, expires }
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
-const COOKIE_NAME = "qrlis_session";
 
 function parseCookies(req) {
-  const header = req.headers.cookie || "";
+  const header = req.headers.cookie;
   const out = {};
-  header.split(";").forEach((pair) => {
-    const idx = pair.indexOf("=");
+  if (!header) return out;
+  header.split(";").forEach((part) => {
+    const idx = part.indexOf("=");
     if (idx === -1) return;
-    out[pair.slice(0, idx).trim()] = decodeURIComponent(pair.slice(idx + 1).trim());
+    const key = part.slice(0, idx).trim();
+    const val = part.slice(idx + 1).trim();
+    if (key) out[key] = decodeURIComponent(val);
   });
   return out;
 }
 
-function setSessionCookie(res, user) {
+function createSession(userId) {
   const token = crypto.randomBytes(32).toString("hex");
-  SESSIONS.set(token, { ...user, expires: Date.now() + SESSION_TTL_MS });
-  res.setHeader("Set-Cookie", `${COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${SESSION_TTL_MS / 1000}; SameSite=Lax`);
+  sessions.set(token, { userId, expires: Date.now() + SESSION_TTL_MS });
   return token;
 }
 
-function clearSessionCookie(req, res) {
-  const token = parseCookies(req)[COOKIE_NAME];
-  if (token) SESSIONS.delete(token);
-  res.setHeader("Set-Cookie", `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
+function destroySession(token) {
+  sessions.delete(token);
 }
 
-/** Returns {sub, name, role} for the current request's session, or null. */
-function readSession(req) {
-  const token = parseCookies(req)[COOKIE_NAME];
-  if (!token) return null;
-  const s = SESSIONS.get(token);
+function getSessionUserId(token) {
+  const s = sessions.get(token);
   if (!s) return null;
-  if (Date.now() > s.expires) { SESSIONS.delete(token); return null; }
-  return s;
+  if (Date.now() > s.expires) {
+    sessions.delete(token);
+    return null;
+  }
+  s.expires = Date.now() + SESSION_TTL_MS; // sliding window: stay logged in while active
+  return s.userId;
 }
 
-/** Express middleware: 401s unless a valid session is present; attaches req.user. */
-function sessionAuth(req, res, next) {
-  const user = readSession(req);
-  if (!user) return res.status(401).json({ error: "Not logged in" });
-  req.user = user;
+function setSessionCookie(req, res, token) {
+  const secure = req.secure || req.headers["x-forwarded-proto"] === "https";
+  res.setHeader(
+    "Set-Cookie",
+    `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; SameSite=Lax${secure ? "; Secure" : ""}`
+  );
+}
+
+function clearSessionCookie(res) {
+  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
+}
+
+/** Reads the session cookie (if any) and attaches req.user + req.sessionToken. Never blocks. */
+function attachUser(db) {
+  return (req, res, next) => {
+    const cookies = parseCookies(req);
+    const token = cookies[SESSION_COOKIE] || null;
+    const userId = token ? getSessionUserId(token) : null;
+    req.sessionToken = token;
+    req.user = userId ? db.getUserSafe(userId) : null;
+    next();
+  };
+}
+
+/** Blocks unless attachUser found a valid, active logged-in user. */
+function requireAuth(req, res, next) {
+  if (!req.user || req.user.active === false) return res.status(401).json({ error: "Login required" });
   next();
 }
 
-module.exports = { hashPassword, verifyPassword, ROLE_VIEWS, setSessionCookie, clearSessionCookie, readSession, sessionAuth };
+/** Blocks unless the logged-in user's role grants at least one of the given module permissions. */
+function requireModule(...moduleKeys) {
+  return (req, res, next) => {
+    if (!req.user || req.user.active === false) return res.status(401).json({ error: "Login required" });
+    const allowed = moduleKeys.some((m) => req.user.permissions.includes(m));
+    if (!allowed) return res.status(403).json({ error: "You don't have access to this section." });
+    next();
+  };
+}
+
+/** Legacy machine-to-machine Basic Auth — used only by the HL7 listener endpoint. */
+function listenerBasicAuth(req, res, next) {
+  const USER = process.env.QRLIS_USER || "admin";
+  const PASS = process.env.QRLIS_PASS || "changeme123";
+
+  const header = req.headers.authorization || "";
+  const [scheme, encoded] = header.split(" ");
+
+  if (scheme === "Basic" && encoded) {
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
+    const sep = decoded.indexOf(":");
+    const user = decoded.slice(0, sep);
+    const pass = decoded.slice(sep + 1);
+    if (user === USER && pass === PASS) return next();
+  }
+
+  res.set("WWW-Authenticate", 'Basic realm="QR LIS listener"');
+  return res.status(401).send("Authentication required.");
+}
+
+module.exports = {
+  hashPassword,
+  verifyPassword,
+  createSession,
+  destroySession,
+  setSessionCookie,
+  clearSessionCookie,
+  attachUser,
+  requireAuth,
+  requireModule,
+  listenerBasicAuth,
+};

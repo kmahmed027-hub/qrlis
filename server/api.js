@@ -1,47 +1,95 @@
 const express = require("express");
 const path = require("path");
 const net = require("net");
-const { sessionAuth, hashPassword, verifyPassword, setSessionCookie, clearSessionCookie, readSession, ROLE_VIEWS } = require("./auth");
-const westgard = require("./westgard");
+const { JsonDb, TEST_STATUSES } = require("./db");
+const {
+  attachUser,
+  requireAuth,
+  requireModule,
+  listenerBasicAuth,
+  createSession,
+  destroySession,
+  setSessionCookie,
+  clearSessionCookie,
+} = require("./auth");
+const { ROLES } = require("./roles");
 
 // `db` is now passed in ready-to-use (see server.js) instead of built here —
 // that's what lets the same createServer() work with either JsonDb or PgDb.
-function createServer({ appDir, db, requireAuth = false }) {
+function createServer({ appDir, db, requireAuth: authEnabled = false }) {
   const app = express();
+  app.set("trust proxy", 1); // so req.secure is correct behind Render/Railway/etc.'s proxy
   app.use(express.json());
+  app.use(attachUser(db));
 
-  // ---- Auth routes (public: must work before a session exists) ----
-  app.post("/api/login", (req, res) => {
+  // The HTML/CSS/JS app shell is public (it has no lab data in it) — the login
+  // screen itself lives inside it. Everything that actually returns data goes
+  // through /api/*, which IS gated below.
+  app.use(express.static(appDir));
+
+  // Pass-through guards when auth is disabled (e.g. a trusted LAN-only deployment).
+  const guard = authEnabled ? requireAuth : (req, res, next) => next();
+  const guardModule = (...mods) => (authEnabled ? requireModule(...mods) : (req, res, next) => next());
+
+  // ---- Auth endpoints (never behind the guard below) ----
+  app.post("/api/auth/login", (req, res) => {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: "username and password are required" });
-
-    const BOOT_USER = process.env.QRLIS_USER || "admin";
-    const BOOT_PASS = process.env.QRLIS_PASS || "changeme123";
-    if (username === BOOT_USER && password === BOOT_PASS) {
-      const user = { sub: "bootstrap", name: "Administrator", role: "Admin" };
-      setSessionCookie(res, user);
-      return res.json({ ...user, views: ROLE_VIEWS.Admin });
-    }
-
-    const staff = db.findStaffByUsername(username);
-    if (!staff || !staff.active || !verifyPassword(password, staff.passwordHash)) {
-      return res.status(401).json({ error: "Invalid username or password" });
-    }
-    const user = { sub: staff.id, name: staff.name, role: staff.role };
-    setSessionCookie(res, user);
-    res.json({ ...user, views: ROLE_VIEWS[staff.role] || ROLE_VIEWS.Receptionist });
+    const user = db.verifyCredentials(username, password);
+    if (!user) return res.status(401).json({ error: "Invalid username or password" });
+    const token = createSession(user.id);
+    setSessionCookie(req, res, token);
+    res.json(user);
   });
 
-  app.post("/api/logout", (req, res) => { clearSessionCookie(req, res); res.status(204).end(); });
-
-  app.get("/api/me", (req, res) => {
-    const user = readSession(req);
-    if (!user) return res.json({ user: null });
-    res.json({ user: { sub: user.sub, name: user.name, role: user.role }, views: ROLE_VIEWS[user.role] || ROLE_VIEWS.Receptionist });
+  app.post("/api/auth/logout", (req, res) => {
+    if (req.sessionToken) destroySession(req.sessionToken);
+    clearSessionCookie(res);
+    res.status(204).end();
   });
 
-  app.use(express.static(appDir));
-  if (requireAuth) app.use("/api", sessionAuth);
+  app.get("/api/auth/me", (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Not logged in" });
+    res.json(req.user);
+  });
+
+  // Everything else under /api requires a valid login when authEnabled is true —
+  // except /api/hl7-results, which is called by the HL7 listener (a background
+  // process on the lab PC, not a browser) and authenticates separately below.
+  app.use("/api", (req, res, next) => {
+    if (req.path === "/hl7-results") return next();
+    return guard(req, res, next);
+  });
+
+  app.get("/api/auth/roles", guardModule("admin"), (req, res) => res.json(ROLES));
+
+  // ---- User accounts (login access) — Admin only ----
+  app.get("/api/users", guardModule("admin"), (req, res) => res.json(db.getUsers()));
+
+  app.post("/api/users", guardModule("admin"), (req, res) => {
+    const { username, password, name, role, staffId } = req.body || {};
+    if (!username || !password || !role) return res.status(400).json({ error: "username, password and role are required" });
+    if (String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (!ROLES.includes(role)) return res.status(400).json({ error: "Unknown role" });
+    if (db.findUserByUsername(username)) return res.status(409).json({ error: "That username is already taken" });
+    res.status(201).json(db.addUser({ username, password, name, role, staffId }));
+  });
+
+  app.patch("/api/users/:id", guardModule("admin"), (req, res) => {
+    const { password, name, role, staffId, active } = req.body || {};
+    if (password && String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    if (role && !ROLES.includes(role)) return res.status(400).json({ error: "Unknown role" });
+    if (active === false && req.user.id === req.params.id) return res.status(400).json({ error: "You can't deactivate your own account while logged in as it." });
+    const updated = db.updateUser(req.params.id, { password, name, role, staffId, active });
+    if (!updated) return res.status(404).json({ error: "Account not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/users/:id", guardModule("admin"), (req, res) => {
+    if (req.user.id === req.params.id) return res.status(400).json({ error: "You can't delete your own account while logged in as it." });
+    db.removeUser(req.params.id);
+    res.status(204).end();
+  });
 
   app.get("/api/instruments", (req, res) => {
     res.json(db.getInstruments());
@@ -51,46 +99,46 @@ function createServer({ appDir, db, requireAuth = false }) {
     res.json(db.dashboardStats());
   });
 
-  app.get("/api/patient360", (req, res) => {
+  app.get("/api/patient360", guardModule("patient360"), (req, res) => {
     const { q, sampleId, status } = req.query;
     res.json(db.search360({ patientQuery: q, sampleId, sampleStatus: status }));
   });
 
-  app.get("/api/patients", (req, res) => {
+  app.get("/api/patients", guardModule("booking", "patient360", "reservations"), (req, res) => {
     res.json(db.getPatients());
   });
 
-  app.post("/api/patients", (req, res) => {
+  app.post("/api/patients", guardModule("booking"), (req, res) => {
     const { name, mobile, mrn, gender, dob } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
     res.status(201).json(db.addPatient({ name, mobile, mrn, gender, dob }));
   });
 
-  app.get("/api/reservations", (req, res) => {
+  app.get("/api/reservations", guardModule("booking", "reservations", "patient360"), (req, res) => {
     const patients = db.getPatients();
     const rows = db.getReservations().map((r) => ({ ...r, patient: patients.find((p) => p.id === r.patientId) || null }));
     res.json(rows);
   });
 
-  app.post("/api/reservations", (req, res) => {
+  app.post("/api/reservations", guardModule("booking"), (req, res) => {
     const { patientId, type, date, status } = req.body || {};
     if (!patientId) return res.status(400).json({ error: "patientId is required" });
     res.status(201).json(db.addReservation({ patientId, type, date, status }));
   });
 
-  app.get("/api/samples", (req, res) => {
+  app.get("/api/samples", guardModule("booking", "samples", "processing", "patient360"), (req, res) => {
     const patients = db.getPatients();
     const rows = db.getSamples().map((s) => ({ ...s, patient: patients.find((p) => p.id === s.patientId) || null }));
     res.json(rows);
   });
 
-  app.post("/api/samples", (req, res) => {
+  app.post("/api/samples", guardModule("booking", "samples"), (req, res) => {
     const { id, patientId, reservationId, branch, collectionDate, receivingDate, status } = req.body || {};
     if (!patientId) return res.status(400).json({ error: "patientId is required" });
     res.status(201).json(db.addSample({ id, patientId, reservationId, branch, collectionDate, receivingDate, status }));
   });
 
-  app.patch("/api/samples/:id/status", (req, res) => {
+  app.patch("/api/samples/:id/status", guardModule("samples", "processing"), (req, res) => {
     const { status } = req.body || {};
     if (!status) return res.status(400).json({ error: "status is required" });
     const updated = db.updateSampleStatus(req.params.id, status);
@@ -98,264 +146,73 @@ function createServer({ appDir, db, requireAuth = false }) {
     res.json(updated);
   });
 
-  app.patch("/api/samples/:id/validate", (req, res) => {
-    if (!["Admin", "Lab Technician"].includes(req.user.role)) return res.status(403).json({ error: "Requires role: Admin or Lab Technician" });
-    const updated = db.validateSample(req.params.id, req.user.name);
-    if (!updated) return res.status(404).json({ error: "Sample not found" });
-    res.json(updated);
-  });
-
-  app.patch("/api/samples/:id/approve", (req, res) => {
-    if (req.user.role !== "Admin") return res.status(403).json({ error: "Requires role: Admin" });
-    const updated = db.approveSample(req.params.id, req.user.name);
-    if (!updated) return res.status(404).json({ error: "Sample not found" });
-    res.json(updated);
-  });
-
-  app.patch("/api/samples/:id/processing", (req, res) => {
+  app.patch("/api/samples/:id/processing", guardModule("processing"), (req, res) => {
     const { step, value } = req.body || {};
     const updated = db.updateProcessingStep(req.params.id, step, value);
     if (!updated) return res.status(404).json({ error: "Sample or step not found" });
     res.json(updated);
   });
 
-  app.get("/api/pcr", (req, res) => {
+  app.get("/api/pcr", guardModule("pcr", "patient360"), (req, res) => {
     const patients = db.getPatients();
     const rows = db.getPcrTests().map((t) => ({ ...t, patient: patients.find((p) => p.id === t.patientId) || null }));
     res.json(rows);
   });
 
-  app.post("/api/pcr", (req, res) => {
-    if (!["Admin", "Lab Technician"].includes(req.user.role)) return res.status(403).json({ error: "Requires role: Admin or Lab Technician" });
+  app.post("/api/pcr", guardModule("pcr"), (req, res) => {
     const { sampleId, patientId, target, ctValue, interpretation, kit, runDate } = req.body || {};
     if (!sampleId || !target) return res.status(400).json({ error: "sampleId and target are required" });
     res.status(201).json(db.addPcrTest({ sampleId, patientId, target, ctValue: ctValue ?? null, interpretation: interpretation || "Pending", kit, runDate }));
   });
 
-  app.get("/api/qc", (req, res) => {
-    const instruments = db.getInstruments();
-    const rows = db.getQcResults().map((r) => ({ ...r, instrumentName: (instruments.find((i) => i.id === r.instrumentId) || {}).name || r.instrumentId }));
-    res.json(rows);
-  });
+  // ---- Test/Service catalog (pricing is admin-managed; anyone doing
+  // Booking/PCR just needs to read it to pick tests) ----
+  app.get("/api/catalog", guardModule("booking", "pcr", "admin", "reservations"), (req, res) => res.json(db.getCatalog()));
 
-  app.post("/api/qc", (req, res) => {
-    if (!["Admin", "Lab Technician"].includes(req.user.role)) return res.status(403).json({ error: "Requires role: Admin or Lab Technician" });
-    const { instrumentId, qcName, lotName, testName, mean, sd, result } = req.body || {};
-    if (!instrumentId || !qcName || !lotName || !testName || mean == null || sd == null || result == null) {
-      return res.status(400).json({ error: "instrumentId, qcName, lotName, testName, mean, sd and result are all required" });
-    }
-    const previous = db.findPreviousQc({ instrumentId, qcName, lotName, testName });
-    const verdict = westgard.evaluate({ mean: Number(mean), sd: Number(sd), result: Number(result), previous });
-    const record = db.addQcResult({
-      instrumentId, qcName, lotName, testName,
-      mean: Number(mean), sd: Number(sd), result: Number(result),
-      resultTime: new Date().toISOString().slice(0, 19).replace("T", " "),
-      westgardRule: verdict.rule, westgardLevel: verdict.level, qcStatus: verdict.status,
-    });
-    res.status(201).json(record);
-  });
-
-  app.patch("/api/qc/:id/exclude", (req, res) => {
-    const updated = db.setQcExcluded(req.params.id, req.body?.excluded);
-    if (!updated) return res.status(404).json({ error: "QC result not found" });
-    res.json(updated);
-  });
-
-  app.patch("/api/qc/:id/validate", (req, res) => {
-    const updated = db.setQcValidation(req.params.id, "validate", req.user.name);
-    if (!updated) return res.status(404).json({ error: "QC result not found" });
-    res.json(updated);
-  });
-
-  app.patch("/api/qc/:id/approve", (req, res) => {
-    if (req.user.role !== "Admin") return res.status(403).json({ error: "Requires role: Admin" });
-    const updated = db.setQcValidation(req.params.id, "approve", req.user.name);
-    if (!updated) return res.status(404).json({ error: "QC result not found" });
-    res.json(updated);
-  });
-
-  app.get("/api/storage-units", (req, res) => res.json(db.getStorageUnits()));
-  app.post("/api/storage-units", (req, res) => {
-    const { name, type, branch } = req.body || {};
+  app.post("/api/catalog", guardModule("admin"), (req, res) => {
+    const { code, name, kind, price } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
-    res.status(201).json(db.addStorageUnit({ name, type, branch }));
+    if (kind && !["Test", "Service"].includes(kind)) return res.status(400).json({ error: "kind must be Test or Service" });
+    res.status(201).json(db.addCatalogItem({ code, name, kind, price }));
   });
 
-  app.get("/api/racks", (req, res) => {
-    const units = db.getStorageUnits();
-    res.json(db.getRacks().map((r) => ({ ...r, unitName: (units.find((u) => u.id === r.unitId) || {}).name || r.unitId })));
-  });
-  app.post("/api/racks", (req, res) => {
-    const { unitId, code, capacity } = req.body || {};
-    if (!unitId || !code) return res.status(400).json({ error: "unitId and code are required" });
-    res.status(201).json(db.addRack({ unitId, code, capacity: capacity ? Number(capacity) : null }));
-  });
-
-  app.patch("/api/samples/:id/store", (req, res) => {
-    const { rackId, position } = req.body || {};
-    if (!rackId || !position) return res.status(400).json({ error: "rackId and position are required" });
-    const updated = db.storeSample(req.params.id, rackId, position);
-    if (!updated) return res.status(404).json({ error: "Sample not found" });
+  app.patch("/api/catalog/:id", guardModule("admin"), (req, res) => {
+    const { code, name, kind, price } = req.body || {};
+    if (kind && !["Test", "Service"].includes(kind)) return res.status(400).json({ error: "kind must be Test or Service" });
+    const updated = db.updateCatalogItem(req.params.id, { code, name, kind, price });
+    if (!updated) return res.status(404).json({ error: "Catalog item not found" });
     res.json(updated);
   });
 
-  app.patch("/api/samples/:id/dispose", (req, res) => {
-    const updated = db.disposeSample(req.params.id);
-    if (!updated) return res.status(404).json({ error: "Sample not found" });
-    res.json(updated);
-  });
-
-  app.get("/api/suppliers", (req, res) => res.json(db.getSuppliers()));
-  app.post("/api/suppliers", (req, res) => {
-    const { name, contact } = req.body || {};
-    if (!name) return res.status(400).json({ error: "name is required" });
-    res.status(201).json(db.addSupplier({ name, contact }));
-  });
-
-  app.get("/api/inventory", (req, res) => res.json(db.getInventoryItems()));
-  app.post("/api/inventory", (req, res) => {
-    const { name, category, unit, quantity, reorderLevel, branch } = req.body || {};
-    if (!name) return res.status(400).json({ error: "name is required" });
-    res.status(201).json(db.addInventoryItem({ name, category, unit, quantity: Number(quantity) || 0, reorderLevel: Number(reorderLevel) || 0, branch }));
-  });
-
-  app.get("/api/purchase-orders", (req, res) => {
-    const items = db.getInventoryItems();
-    const suppliers = db.getSuppliers();
-    const rows = db.getPurchaseOrders().map((o) => ({
-      ...o,
-      itemName: (items.find((i) => i.id === o.itemId) || {}).name || o.itemId,
-      supplierName: (suppliers.find((s) => s.id === o.supplierId) || {}).name || o.supplierId,
-    }));
-    res.json(rows);
-  });
-  app.post("/api/purchase-orders", (req, res) => {
-    const { itemId, supplierId, quantity } = req.body || {};
-    if (!itemId || !quantity) return res.status(400).json({ error: "itemId and quantity are required" });
-    res.status(201).json(db.addPurchaseOrder({ itemId, supplierId, quantity: Number(quantity) }));
-  });
-  app.patch("/api/purchase-orders/:id/receive", (req, res) => {
-    const updated = db.receivePurchaseOrder(req.params.id);
-    if (!updated) return res.status(404).json({ error: "Order not found or already received" });
-    res.json(updated);
-  });
-
-  app.get("/api/reports/:type", (req, res) => {
-    const type = req.params.type;
-    const patients = db.getPatients();
-    const samples = db.getSamples();
-    const results = db.getResults();
-    const pcr = db.getPcrTests();
-    const qc = db.getQcResults();
-    const racks = db.getRacks();
-    const instruments = db.getInstruments();
-
-    if (type === "patient-count") {
-      const byGender = {};
-      patients.forEach((p) => { byGender[p.gender || "Unknown"] = (byGender[p.gender || "Unknown"] || 0) + 1; });
-      return res.json({
-        columns: ["Metric", "Value"],
-        rows: [["Total patients", patients.length], ...Object.entries(byGender).map(([g, n]) => [`Gender: ${g}`, n])],
-      });
-    }
-
-    if (type === "patient-details") {
-      return res.json({
-        columns: ["ID", "Name", "MRN", "Mobile", "Gender", "DOB"],
-        rows: patients.map((p) => [p.id, p.name, p.mrn || "—", p.mobile || "—", p.gender || "—", p.dob || "—"]),
-      });
-    }
-
-    if (type === "services") {
-      const counts = {};
-      results.forEach((r) => { counts[r.testName] = (counts[r.testName] || 0) + 1; });
-      return res.json({
-        columns: ["Test Name", "Times Ordered"],
-        rows: Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([name, n]) => [name, n]),
-      });
-    }
-
-    if (type === "performance") {
-      const byStatus = {};
-      samples.forEach((s) => { byStatus[s.status] = (byStatus[s.status] || 0) + 1; });
-      const byInterp = {};
-      pcr.forEach((t) => { byInterp[t.interpretation] = (byInterp[t.interpretation] || 0) + 1; });
-      return res.json({
-        columns: ["Metric", "Value"],
-        rows: [
-          ["Total samples", samples.length],
-          ...Object.entries(byStatus).map(([s, n]) => [`Samples: ${s}`, n]),
-          ["Total PCR runs", pcr.length],
-          ...Object.entries(byInterp).map(([s, n]) => [`PCR: ${s}`, n]),
-        ],
-      });
-    }
-
-    if (type === "qc") {
-      const byAnalyzer = {};
-      qc.forEach((r) => {
-        const name = (instruments.find((i) => i.id === r.instrumentId) || {}).name || r.instrumentId;
-        byAnalyzer[name] = byAnalyzer[name] || { Pass: 0, Warning: 0, Fail: 0 };
-        byAnalyzer[name][r.qcStatus] = (byAnalyzer[name][r.qcStatus] || 0) + 1;
-      });
-      return res.json({
-        columns: ["Analyzer", "Pass", "Warning", "Fail"],
-        rows: Object.entries(byAnalyzer).map(([name, c]) => [name, c.Pass || 0, c.Warning || 0, c.Fail || 0]),
-      });
-    }
-
-    if (type === "storage") {
-      return res.json({
-        columns: ["Rack", "Capacity", "Occupied", "Free"],
-        rows: racks.map((r) => {
-          const occupied = samples.filter((s) => s.rackId === r.id && !s.disposed).length;
-          return [r.code, r.capacity ?? "—", occupied, r.capacity != null ? r.capacity - occupied : "—"];
-        }),
-      });
-    }
-
-    res.status(404).json({ error: "Unknown report type" });
-  });
-
-  app.get("/api/staff", (req, res) => res.json(db.getStaff().map(({ passwordHash, ...rest }) => rest)));
-  app.post("/api/staff", (req, res) => {
-    if (req.user.role !== "Admin") return res.status(403).json({ error: "Admin role required" });
-    const { name, role, branch, username, password } = req.body || {};
-    if (!name || !role) return res.status(400).json({ error: "name and role are required" });
-    if (username && db.findStaffByUsername(username)) return res.status(409).json({ error: "Username already taken" });
-    const record = db.addStaff({ name, role, branch, username: username || null, passwordHash: password ? hashPassword(password) : null });
-    const { passwordHash, ...safe } = record;
-    res.status(201).json(safe);
-  });
-  app.delete("/api/staff/:id", (req, res) => {
-    if (req.user.role !== "Admin") return res.status(403).json({ error: "Admin role required" });
-    db.removeStaff(req.params.id);
+  app.delete("/api/catalog/:id", guardModule("admin"), (req, res) => {
+    db.removeCatalogItem(req.params.id);
     res.status(204).end();
   });
 
-  app.get("/api/branches", (req, res) => res.json(db.getBranches()));
-  app.post("/api/branches", (req, res) => {
-    if (req.user.role !== "Admin") return res.status(403).json({ error: "Admin role required" });
+  app.get("/api/staff", guardModule("admin"), (req, res) => res.json(db.getStaff()));
+  app.post("/api/staff", guardModule("admin"), (req, res) => {
+    const { name, role, branch } = req.body || {};
+    if (!name || !role) return res.status(400).json({ error: "name and role are required" });
+    res.status(201).json(db.addStaff({ name, role, branch }));
+  });
+  app.delete("/api/staff/:id", guardModule("admin"), (req, res) => { db.removeStaff(req.params.id); res.status(204).end(); });
+
+  app.get("/api/branches", guardModule("admin"), (req, res) => res.json(db.getBranches()));
+  app.post("/api/branches", guardModule("admin"), (req, res) => {
     const { code, name, type } = req.body || {};
     if (!code || !name) return res.status(400).json({ error: "code and name are required" });
     res.status(201).json(db.addBranch({ code, name, type }));
   });
-  app.delete("/api/branches/:id", (req, res) => {
-    if (req.user.role !== "Admin") return res.status(403).json({ error: "Admin role required" });
-    db.removeBranch(req.params.id);
-    res.status(204).end();
-  });
+  app.delete("/api/branches/:id", guardModule("admin"), (req, res) => { db.removeBranch(req.params.id); res.status(204).end(); });
 
-  app.post("/api/instruments", (req, res) => {
-    if (!["Admin", "Lab Technician"].includes(req.user.role)) return res.status(403).json({ error: "Requires role: Admin or Lab Technician" });
+  app.post("/api/instruments", guardModule("connection", "booking"), (req, res) => {
     const { name, model, conn, protocol, address } = req.body || {};
     if (!name) return res.status(400).json({ error: "name is required" });
     const record = db.addInstrument({ name, model, conn, protocol, address });
     res.status(201).json(record);
   });
 
-  app.delete("/api/instruments/:id", (req, res) => {
-    if (!["Admin", "Lab Technician"].includes(req.user.role)) return res.status(403).json({ error: "Requires role: Admin or Lab Technician" });
+  app.delete("/api/instruments/:id", guardModule("connection"), (req, res) => {
     db.removeInstrument(req.params.id);
     res.status(204).end();
   });
@@ -364,7 +221,7 @@ function createServer({ appDir, db, requireAuth = false }) {
   // host:port. Serial (COM-port) instruments can't be reached from a web server —
   // that link only exists on the lab PC running qrlis-hl7-listener.exe — so we
   // return an explanatory message instead of a false "connected".
-  app.post("/api/instruments/:id/test", (req, res) => {
+  app.post("/api/instruments/:id/test", guardModule("connection"), (req, res) => {
     const inst = db.getInstruments().find((i) => i.id === req.params.id);
     if (!inst) return res.status(404).json({ ok: false, message: "Instrument not found" });
 
@@ -401,9 +258,27 @@ function createServer({ appDir, db, requireAuth = false }) {
     res.json(db.getResults());
   });
 
+  // ---- Samples Report: one row per test, joined with sample/patient/reservation,
+  // with the same filters the report's filter panel exposes. ----
+  app.get("/api/samples-report", guardModule("booking", "samples", "processing", "patient360"), (req, res) => {
+    res.json(db.reportRows(req.query));
+  });
+
+  app.get("/api/meta/test-statuses", guardModule("booking", "samples", "processing", "patient360"), (req, res) => {
+    res.json(TEST_STATUSES);
+  });
+
+  app.patch("/api/results/:id", guardModule("samples", "processing"), (req, res) => {
+    const { testStatus, isOnHold } = req.body || {};
+    if (testStatus && !TEST_STATUSES.includes(testStatus)) return res.status(400).json({ error: "Unknown test status" });
+    const updated = db.updateResultFields(req.params.id, { testStatus, isOnHold });
+    if (!updated) return res.status(404).json({ error: "Result not found" });
+    res.json(updated);
+  });
+
   // Called by the HL7 listener (see hl7-listener/listener.js -> forwardToQrLis) whenever a
   // real (or test) instrument message arrives.
-  app.post("/api/hl7-results", (req, res) => {
+  app.post("/api/hl7-results", listenerBasicAuth, (req, res) => {
     const { sampleId, sendingSystem, results } = req.body || {};
     if (!sampleId || !Array.isArray(results)) {
       return res.status(400).json({ error: "sampleId and results[] are required" });

@@ -5,8 +5,8 @@
  *
  * IMPORTANT — set these in your hosting provider's "Environment Variables" screen,
  * do NOT hardcode them in code you push to GitHub:
- *   QRLIS_USER      (login username)
- *   QRLIS_PASS      (login password)
+ *   QRLIS_USER      (initial admin login username, first run only)
+ *   QRLIS_PASS      (initial admin login password, first run only)
  *   DATABASE_URL    (optional — a Postgres connection string. When set, data is
  *                    stored durably in Postgres instead of a local JSON file,
  *                    so it survives restarts/redeploys. Leave unset for local

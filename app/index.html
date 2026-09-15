@@ -12,116 +12,45 @@
 </head>
 <body>
 
-<header class="lis-topbar">
-  <div class="lis-brand"><i class="fa-solid fa-qrcode"></i> QR LIS</div>
-  <nav class="lis-topnav">
-    <div class="lis-nav-group">
-      <button class="lis-nav-item active" type="button">Dashboard</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewDashboard">Command Center</button>
-      </div>
-    </div>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">Booking</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewBooking">Sample Registration</button>
-        <button type="button" data-view="viewSoon" data-label="Contracts">Contracts</button>
-        <button type="button" data-view="viewSoon" data-label="Test Query">Test Query</button>
-      </div>
-    </div>
-
-    <button class="lis-nav-item" data-view="viewReservations">Reservations</button>
-    <button class="lis-nav-item" data-view="viewSamples">Samples</button>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">PCR</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewSoon" data-label="Batches">Batches</button>
-        <button type="button" data-view="viewSoon" data-label="Batch Receiving">Batch Receiving</button>
-        <button type="button" data-view="viewSoon" data-label="Extraction">Extraction</button>
-        <button type="button" data-view="viewPCR">PCR</button>
-        <button type="button" data-view="viewSoon" data-label="Result">Result</button>
-      </div>
-    </div>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">Processing</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewProcessing">Preanalytical</button>
-        <button type="button" data-view="viewBooking">Receiving</button>
-        <button type="button" data-view="viewValidation">Validation</button>
-        <button type="button" data-view="viewApproval">Approval</button>
-        <button type="button" data-view="viewPatient360"><i class="fa-solid fa-user-doctor"></i> Patient 360</button>
-      </div>
-    </div>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">Administration</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewAdmin">Staff &amp; Branches</button>
-        <button type="button" data-view="viewConnection"><i class="fa-solid fa-plug"></i> Connection</button>
-      </div>
-    </div>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">Sample Archiving</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewArchiving" data-label="Storage Units">Storage Units</button>
-        <button type="button" data-view="viewArchiving" data-label="Racks">Racks</button>
-        <button type="button" data-view="viewArchiving" data-label="Sample Storage">Sample Storage</button>
-        <button type="button" data-view="viewArchiving" data-label="Sample Disposal">Sample Disposal</button>
-      </div>
-    </div>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">Warehouse</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewWarehouse" data-label="Settings">Settings</button>
-        <button type="button" data-view="viewWarehouse" data-label="Purchasing">Purchasing</button>
-        <button type="button" data-view="viewWarehouse" data-label="Inventory">Inventory</button>
-      </div>
-    </div>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">QC</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" class="disabled">WestGard Rules</button>
-        <button type="button" class="disabled">Controls</button>
-        <button type="button" data-view="viewQC">Daily QC</button>
-        <button type="button" data-view="viewSoon" data-label="Monthly QC">Monthly QC</button>
-      </div>
-    </div>
-
-    <div class="lis-nav-group">
-      <button class="lis-nav-item" type="button">Reporting</button>
-      <div class="lis-nav-dropdown">
-        <button type="button" data-view="viewSoon" data-label="Financial Reports">Financial Reports</button>
-        <button type="button" data-view="viewReporting" data-report="patient-count" data-label="Analysis Reports">Analysis Reports</button>
-        <button type="button" data-view="viewReporting" data-report="performance" data-label="Operational Reports">Operational Reports</button>
-        <button type="button" data-view="viewReporting" data-report="qc" data-label="Quality Reports">Quality Reports</button>
-        <button type="button" data-view="viewReporting" data-report="storage" data-label="Archiving Reports">Archiving Reports</button>
-        <button type="button" data-view="viewSoon" data-label="Alert Report">Alert Report</button>
-      </div>
-    </div>
-
-    <button class="lis-nav-item"><i class="fa-solid fa-bell"></i></button>
-  </nav>
-  <div class="lis-user"><i class="fa-solid fa-circle-user"></i> <span id="lisUserName">—</span> <span id="lisUserRole" class="lis-badge" style="margin-left:6px"></span> <button class="btn ghost" id="btnLogout" style="padding:4px 10px;font-size:11.5px;margin-left:8px">Logout</button></div>
-</header>
-
 <div class="overlay" id="loginOverlay">
   <div class="modal fade-in" style="max-width:340px">
     <div class="modal-head"><span class="modal-title"><i class="fa-solid fa-qrcode"></i> QR LIS — Sign in</span></div>
-    <form id="loginForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Username *</span><input required id="loginUsername" autocomplete="username" /></label>
-      <label class="field"><span class="field-label">Password *</span><input required type="password" id="loginPassword" autocomplete="current-password" /></label>
-      <p id="loginError" class="lis-instrument-note" style="color:#e0575a;display:none"></p>
-    </div>
-    <div class="modal-foot"><button type="submit" class="btn primary" style="width:100%">Sign in</button></div>
+    <form id="loginForm">
+      <div class="modal-body">
+        <p id="loginError" style="color:#c0392b;font-size:13px;min-height:16px;margin:0 0 6px"></p>
+        <label class="field"><span class="field-label">Username</span><input required id="loginUsername" autocomplete="username" /></label>
+        <label class="field"><span class="field-label">Password</span><input required type="password" id="loginPassword" autocomplete="current-password" /></label>
+      </div>
+      <div class="modal-foot"><button type="submit" class="btn primary" id="loginSubmit" style="width:100%">Sign in</button></div>
     </form>
   </div>
 </div>
+
+<div id="lisAppShell" hidden>
+<header class="lis-topbar">
+  <div class="lis-brand"><i class="fa-solid fa-qrcode"></i> QR LIS</div>
+  <nav class="lis-topnav">
+    <button class="lis-nav-item active" data-view="viewDashboard">Dashboard</button>
+    <button class="lis-nav-item" data-view="viewBooking">Booking</button>
+    <button class="lis-nav-item" data-view="viewPatient360"><i class="fa-solid fa-user-doctor"></i> Patient 360</button>
+    <button class="lis-nav-item" data-view="viewReservations">Reservations</button>
+    <button class="lis-nav-item" data-view="viewSamples">Samples</button>
+    <button class="lis-nav-item" data-view="viewPCR">PCR</button>
+    <button class="lis-nav-item" data-view="viewProcessing">Processing</button>
+    <button class="lis-nav-item" data-view="viewAdmin">Administration</button>
+    <button class="lis-nav-item" data-view="viewSoon" data-label="Warehouse">Warehouse</button>
+    <button class="lis-nav-item" data-view="viewSoon" data-label="QC">QC</button>
+    <button class="lis-nav-item" data-view="viewSoon" data-label="Reporting">Reporting</button>
+    <button class="lis-nav-item" id="navConnection" data-view="viewConnection"><i class="fa-solid fa-plug"></i> Connection</button>
+    <button class="lis-nav-item"><i class="fa-solid fa-bell"></i></button>
+  </nav>
+  <div class="lis-user">
+    <i class="fa-solid fa-circle-user"></i>
+    <span id="lisUserName">—</span>
+    <span id="lisUserRole" class="lis-badge" style="margin-inline-start:6px"></span>
+    <button class="btn ghost icon-only" id="btnLogout" title="Log out" style="margin-inline-start:8px"><i class="fa-solid fa-right-from-bracket"></i></button>
+  </div>
+</header>
 
 <main class="lis-main" id="viewDashboard">
   <h1 class="lis-title">Dashboard</h1>
@@ -181,18 +110,63 @@
 </main>
 
 <main class="lis-main" id="viewSamples" hidden>
-  <h1 class="lis-title">Samples</h1>
+  <h1 class="lis-title">Samples Report</h1>
+
+  <div class="lis-filter-grid">
+    <div class="panel-card lis-filter-card">
+      <div class="lis-filter-head">Reservations</div>
+      <select class="lis-filter-input" id="srResStatus"><option value="">Reservation Status</option><option>Pending</option><option>Confirmed</option><option>Completed</option><option>Cancelled</option></select>
+    </div>
+    <div class="panel-card lis-filter-card">
+      <div class="lis-filter-head">Patients</div>
+      <input class="lis-filter-input" id="srPatientQuery" placeholder="Name / Mobile / MRN" />
+    </div>
+    <div class="panel-card lis-filter-card">
+      <div class="lis-filter-head">Samples</div>
+      <input class="lis-filter-input" id="srSampleId" placeholder="Sample ID" />
+      <select class="lis-filter-input" id="srSampleStatus"><option value="">Sample Status</option><option>Received</option><option>Processing</option><option>Validated</option><option>Reported</option></select>
+      <input class="lis-filter-input" type="date" id="srCollectionFrom" title="Collection Date From" />
+      <input class="lis-filter-input" type="date" id="srCollectionTo" title="Collection Date To" />
+    </div>
+    <div class="panel-card lis-filter-card">
+      <div class="lis-filter-head">Tests</div>
+      <input class="lis-filter-input" id="srTestName" placeholder="Test Name" />
+      <select class="lis-filter-input" id="srTestStatus"><option value="">Test Status</option></select>
+    </div>
+    <div class="panel-card lis-filter-card">
+      <div class="lis-filter-head">Branch</div>
+      <input class="lis-filter-input" id="srBranch" placeholder="Branch" />
+    </div>
+  </div>
+
+  <div class="panel-card lis-toggle-bar" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+    <label class="lis-toggle"><input type="checkbox" id="srGroupToggle" checked /> <span class="lis-switch"></span> Group by Reservation</label>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="lis-count" id="srFilterCount">0 filters applied</span>
+      <button class="btn primary" id="btnSrSearch"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+    </div>
+  </div>
+
   <div class="panel-card" style="padding:0;overflow:hidden">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">All Samples <span class="lis-count" id="cntSampleRows">0</span></div>
+    <div class="lis-table-toolbar" style="flex-wrap:wrap;gap:8px">
+      <div class="lis-filter-head" style="border:none;padding:0">Results <span class="lis-count" id="cntSampleRows">0</span></div>
       <div style="flex:1"></div>
+      <button class="btn secondary" id="btnSrCopy">Copy</button>
+      <button class="btn secondary" id="btnSrCsv">CSV</button>
+      <button class="btn secondary" id="btnSrExcel">Excel</button>
+      <button class="btn secondary" id="btnSrPrint">Print</button>
       <button class="btn primary" id="btnAddSample"><i class="fa-solid fa-plus"></i> New Sample</button>
     </div>
     <div class="table-wrap">
       <table class="data-table lis-table">
-        <thead><tr><th>Sample ID</th><th>Patient</th><th>Branch</th><th>Collected</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Test ID</th><th>Test Name</th><th>Registered at</th><th>Collected at</th><th>Received at</th><th>Expected</th><th>On Hold</th><th>Test Status</th><th>Result</th><th>Action</th></tr></thead>
         <tbody id="samplesTableBody"></tbody>
       </table>
+    </div>
+    <div class="lis-table-toolbar" style="justify-content:flex-end;gap:10px">
+      <button class="btn ghost icon-only" id="srPrevPage"><i class="fa-solid fa-arrow-left"></i></button>
+      <span id="srPageLabel" style="font-size:12.5px;color:var(--text-faint)"></span>
+      <button class="btn ghost icon-only" id="srNextPage"><i class="fa-solid fa-arrow-right"></i></button>
     </div>
   </div>
 </main>
@@ -232,7 +206,35 @@
 
 <main class="lis-main" id="viewAdmin" hidden>
   <h1 class="lis-title">Administration</h1>
-  <p class="lis-instrument-note" style="margin-bottom:12px"><i class="fa-solid fa-triangle-exclamation" style="color:#e0a300"></i> This is a staff/branch directory for record-keeping — it does not yet control login access. The app still uses one shared password for everyone (set via QRLIS_USER/QRLIS_PASS). Real per-user login with roles is a separate, bigger piece of work.</p>
+  <p class="lis-instrument-note" style="margin-bottom:12px"><i class="fa-solid fa-circle-check" style="color:#2ecc71"></i> Staff/Branches below are just a record-keeping directory. Actual sign-in access and permissions are managed separately in <b>User Accounts</b> — each account picks a role, and the role decides which of the tabs above that person can see.</p>
+
+  <div class="panel-card" style="padding:0;overflow:hidden;margin-bottom:14px">
+    <div class="lis-table-toolbar">
+      <div class="lis-filter-head" style="border:none;padding:0">Test/Service Catalog <span class="lis-count" id="cntCatalogRows">0</span></div>
+      <div style="flex:1"></div>
+      <button class="btn primary" id="btnAddCatalogItem"><i class="fa-solid fa-plus"></i> Add item</button>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table lis-table">
+        <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Price</th><th>Actions</th></tr></thead>
+        <tbody id="catalogTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel-card" style="padding:0;overflow:hidden;margin-bottom:14px">
+    <div class="lis-table-toolbar">
+      <div class="lis-filter-head" style="border:none;padding:0">User Accounts <span class="lis-count" id="cntUserRows">0</span></div>
+      <div style="flex:1"></div>
+      <button class="btn primary" id="btnAddUser"><i class="fa-solid fa-plus"></i> Add account</button>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table lis-table">
+        <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Linked staff</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="usersTableBody"></tbody>
+      </table>
+    </div>
+  </div>
 
   <div class="panel-card" style="padding:0;overflow:hidden;margin-bottom:14px">
     <div class="lis-table-toolbar">
@@ -263,170 +265,11 @@
   </div>
 </main>
 
-<main class="lis-main" id="viewQC" hidden>
-  <h1 class="lis-title">Daily QC — Westgard Rules</h1>
-  <div class="lis-filter-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-    <div class="panel-card lis-filter-card">
-      <div class="lis-filter-head">Analyzer</div>
-      <select class="lis-filter-input" id="qcFilterInstrument"><option value="">All</option></select>
-    </div>
-    <div class="panel-card lis-filter-card">
-      <div class="lis-filter-head">Status</div>
-      <select class="lis-filter-input" id="qcFilterStatus">
-        <option value="">All</option><option>Pass</option><option>Warning</option><option>Fail</option>
-      </select>
-    </div>
-  </div>
-  <div style="margin:10px 0;display:flex;gap:8px"><button class="btn primary" id="btnAddQc"><i class="fa-solid fa-plus"></i> New QC Result</button><button class="btn secondary" id="btnLjChart"><i class="fa-solid fa-chart-line"></i> L-J Chart</button></div>
-  <div class="panel-card" id="ljChartPanel" hidden style="margin-bottom:14px"></div>
-  <div class="panel-card" style="padding:0;overflow:hidden">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">QC Results <span class="lis-count" id="cntQcRows">0</span></div>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table lis-table">
-        <thead><tr>
-          <th>Analyzer</th><th>QC Name</th><th>Lot</th><th>Test</th><th>Mean</th><th>SD</th><th>Result</th>
-          <th>Westgard Rule</th><th>Level</th><th>Status</th><th>Excluded</th><th>Validate</th><th>Approve</th>
-        </tr></thead>
-        <tbody id="qcTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-</main>
-
-<main class="lis-main" id="viewArchiving" hidden>
-  <h1 class="lis-title">Sample Archiving</h1>
-
-  <div class="panel-card" style="padding:0;overflow:hidden;margin-bottom:14px">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">Storage Units <span class="lis-count" id="cntUnitRows">0</span></div>
-      <div style="flex:1"></div>
-      <button class="btn primary" id="btnAddUnit"><i class="fa-solid fa-plus"></i> Add unit</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table lis-table">
-        <thead><tr><th>Name</th><th>Type</th><th>Branch</th></tr></thead>
-        <tbody id="unitsTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="panel-card" style="padding:0;overflow:hidden;margin-bottom:14px">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">Racks <span class="lis-count" id="cntRackRows">0</span></div>
-      <div style="flex:1"></div>
-      <button class="btn primary" id="btnAddRack"><i class="fa-solid fa-plus"></i> Add rack</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table lis-table">
-        <thead><tr><th>Code</th><th>Storage Unit</th><th>Capacity</th></tr></thead>
-        <tbody id="racksTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="panel-card" style="padding:0;overflow:hidden">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">Sample Storage &amp; Disposal <span class="lis-count" id="cntArchSampleRows">0</span></div>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table lis-table">
-        <thead><tr><th>Sample</th><th>Patient</th><th>Rack</th><th>Position</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="archSamplesTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-</main>
-
-<main class="lis-main" id="viewWarehouse" hidden>
-  <h1 class="lis-title">Warehouse</h1>
-
-  <div class="panel-card" style="padding:0;overflow:hidden;margin-bottom:14px">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">Settings — Suppliers <span class="lis-count" id="cntSupplierRows">0</span></div>
-      <div style="flex:1"></div>
-      <button class="btn primary" id="btnAddSupplier"><i class="fa-solid fa-plus"></i> Add supplier</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table lis-table">
-        <thead><tr><th>Name</th><th>Contact</th></tr></thead>
-        <tbody id="suppliersTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="panel-card" style="padding:0;overflow:hidden;margin-bottom:14px">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">Inventory <span class="lis-count" id="cntInventoryRows">0</span></div>
-      <div style="flex:1"></div>
-      <button class="btn primary" id="btnAddInventoryItem"><i class="fa-solid fa-plus"></i> Add item</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table lis-table">
-        <thead><tr><th>Item</th><th>Category</th><th>Quantity</th><th>Reorder Level</th><th>Branch</th><th>Status</th></tr></thead>
-        <tbody id="inventoryTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="panel-card" style="padding:0;overflow:hidden">
-    <div class="lis-table-toolbar">
-      <div class="lis-filter-head" style="border:none;padding:0">Purchasing <span class="lis-count" id="cntPoRows">0</span></div>
-      <div style="flex:1"></div>
-      <button class="btn primary" id="btnAddPo"><i class="fa-solid fa-plus"></i> New purchase order</button>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table lis-table">
-        <thead><tr><th>Item</th><th>Supplier</th><th>Qty</th><th>Order Date</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="poTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-</main>
-
-<main class="lis-main" id="viewReporting" hidden>
-  <h1 class="lis-title">Reporting</h1>
-  <div class="panel-card lis-filter-card" style="max-width:360px;margin-bottom:14px">
-    <div class="lis-filter-head">Report</div>
-    <select class="lis-filter-input" id="reportType">
-      <optgroup label="Analysis Reports">
-        <option value="patient-count">Patient Number Report</option>
-        <option value="patient-details">Patient Details Report</option>
-        <option value="services">Services Analysis Report</option>
-      </optgroup>
-      <optgroup label="Operational Reports">
-        <option value="performance">Daily Performance Report</option>
-      </optgroup>
-      <optgroup label="Quality Reports">
-        <option value="qc">QC Pass/Fail Summary</option>
-      </optgroup>
-      <optgroup label="Archiving Reports">
-        <option value="storage">Storage Utilization</option>
-      </optgroup>
-    </select>
-  </div>
-  <div style="margin-bottom:10px"><button class="btn secondary" id="btnExportReport"><i class="fa-solid fa-download"></i> Export CSV</button></div>
-  <div class="panel-card" id="reportOutput" style="padding:0;overflow:hidden"></div>
-</main>
-
-<main class="lis-main" id="viewValidation" hidden>
-  <h1 class="lis-title">Validation</h1>
-  <p class="lis-instrument-note" style="margin-bottom:12px"><i class="fa-solid fa-circle-info"></i> Samples that finished analyzer processing, waiting for a technician to review the results and validate the sample.</p>
-  <div id="validationList"></div>
-</main>
-
-<main class="lis-main" id="viewApproval" hidden>
-  <h1 class="lis-title">Approval</h1>
-  <p class="lis-instrument-note" style="margin-bottom:12px"><i class="fa-solid fa-circle-info"></i> Validated samples awaiting final sign-off before the report is released to the patient.</p>
-  <div id="approvalList"></div>
-</main>
-
 <main class="lis-main" id="viewSoon" hidden>
   <h1 class="lis-title" id="soonTitle">—</h1>
   <div class="panel-card" style="text-align:center;padding:40px">
     <i class="fa-solid fa-screwdriver-wrench" style="font-size:28px;color:var(--text-faint)"></i>
-    <p class="lis-instrument-note" style="justify-content:center;margin-top:10px">This module isn't built in this prototype yet — Dashboard, Booking, Reservations, Samples, PCR, Processing, Patient 360, Administration and Connection are the working parts so far.</p>
+    <p class="lis-instrument-note" style="justify-content:center;margin-top:10px">This module isn't built in this prototype yet — Dashboard, Booking, Patient 360 and Connection are the working parts so far.</p>
   </div>
 </main>
 
@@ -657,11 +500,38 @@
         <select required id="stfRole"><option>Admin</option><option>Lab Technician</option><option>Receptionist</option><option>Pathologist</option></select>
       </label>
       <label class="field"><span class="field-label">Branch</span><input id="stfBranch" placeholder="e.g. LB010 Suways, Jazan" /></label>
-      <hr style="border-color:var(--border);margin:10px 0" />
-      <label class="field"><span class="field-label">Username (for login)</span><input id="stfUsername" placeholder="e.g. mona.g" autocomplete="off" /></label>
-      <label class="field"><span class="field-label">Password</span><input type="password" id="stfPassword" placeholder="Leave blank = can't log in yet" autocomplete="new-password" /></label>
     </div>
     <div class="modal-foot"><button type="button" class="btn secondary" id="staffModalCancel">Cancel</button><button type="submit" class="btn primary">Add</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="catalogModalOverlay" hidden>
+  <div class="modal fade-in" style="max-width:360px">
+    <div class="modal-head"><span class="modal-title">Add catalog item</span><button class="btn ghost icon-only" id="catalogModalClose">✕</button></div>
+    <form id="catalogForm"><div class="modal-body">
+      <label class="field"><span class="field-label">Code</span><input id="catCode" placeholder="e.g. 34663" /></label>
+      <label class="field"><span class="field-label">Name *</span><input required id="catName" placeholder="e.g. HbA1c" /></label>
+      <label class="field"><span class="field-label">Type *</span><select required id="catKind"><option>Test</option><option>Service</option></select></label>
+      <label class="field"><span class="field-label">Price (SAR) *</span><input required type="number" step="0.01" min="0" id="catPrice" placeholder="0.00" /></label>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn secondary" id="catalogModalCancel">Cancel</button><button type="submit" class="btn primary">Add</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="userModalOverlay" hidden>
+  <div class="modal fade-in" style="max-width:380px">
+    <div class="modal-head"><span class="modal-title">Add login account</span><button class="btn ghost icon-only" id="userModalClose">✕</button></div>
+    <form id="userForm"><div class="modal-body">
+      <label class="field"><span class="field-label">Username *</span><input required id="usrUsername" autocomplete="off" placeholder="e.g. sara.amri" /></label>
+      <label class="field"><span class="field-label">Password *</span><input required type="password" id="usrPassword" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" /></label>
+      <label class="field"><span class="field-label">Display name</span><input id="usrName" placeholder="e.g. Sara Al-Amri" /></label>
+      <label class="field"><span class="field-label">Role *</span><select required id="usrRole"></select></label>
+      <label class="field"><span class="field-label">Linked staff (optional)</span><select id="usrStaff"><option value="">None</option></select></label>
+      <p id="userFormError" style="color:#c0392b;font-size:13px;margin:4px 0 0"></p>
+    </div>
+    <div class="modal-foot"><button type="button" class="btn secondary" id="userModalCancel">Cancel</button><button type="submit" class="btn primary">Add</button></div>
     </form>
   </div>
 </div>
@@ -681,110 +551,8 @@
   </div>
 </div>
 
-<div class="overlay" id="qcModalOverlay" hidden>
-  <div class="modal fade-in" style="max-width:380px">
-    <div class="modal-head"><span class="modal-title">New QC result</span><button class="btn ghost icon-only" id="qcModalClose">✕</button></div>
-    <form id="qcForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Analyzer *</span>
-        <select required id="qcInstrument"></select>
-      </label>
-      <label class="field"><span class="field-label">QC Name *</span><input required id="qcName" placeholder="e.g. DxC 700 Au" /></label>
-      <label class="field"><span class="field-label">Lot *</span><input required id="qcLot" placeholder="e.g. Zinc QC1 (1783UN)" /></label>
-      <label class="field"><span class="field-label">Test *</span><input required id="qcTest" placeholder="e.g. Zinc, Serum" /></label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <label class="field"><span class="field-label">Mean *</span><input required type="number" step="0.01" id="qcMean" /></label>
-        <label class="field"><span class="field-label">SD *</span><input required type="number" step="0.01" id="qcSd" /></label>
-      </div>
-      <label class="field"><span class="field-label">Result *</span><input required type="number" step="0.01" id="qcResult" /></label>
-      <p class="lis-instrument-note"><i class="fa-solid fa-circle-info"></i> Pass/Fail and the Westgard rule (13s, 22s, R4s...) are computed automatically from mean/SD/result — not entered by hand.</p>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn secondary" id="qcModalCancel">Cancel</button><button type="submit" class="btn primary">Save</button></div>
-    </form>
-  </div>
-</div>
 
-<div class="overlay" id="unitModalOverlay" hidden>
-  <div class="modal fade-in" style="max-width:360px">
-    <div class="modal-head"><span class="modal-title">Add storage unit</span><button class="btn ghost icon-only" id="unitModalClose">✕</button></div>
-    <form id="unitForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Name *</span><input required id="unitName" placeholder="e.g. Freezer C" /></label>
-      <label class="field"><span class="field-label">Type</span>
-        <select id="unitType"><option>Freezer -20°C</option><option>Freezer -80°C</option><option>Fridge 2-8°C</option><option>Room Temp</option></select>
-      </label>
-      <label class="field"><span class="field-label">Branch</span><input id="unitBranch" placeholder="e.g. LB010 Suways, Jazan" /></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn secondary" id="unitModalCancel">Cancel</button><button type="submit" class="btn primary">Add</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="overlay" id="rackModalOverlay" hidden>
-  <div class="modal fade-in" style="max-width:360px">
-    <div class="modal-head"><span class="modal-title">Add rack</span><button class="btn ghost icon-only" id="rackModalClose">✕</button></div>
-    <form id="rackForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Storage Unit *</span><select required id="rackUnitSelect"></select></label>
-      <label class="field"><span class="field-label">Code *</span><input required id="rackCode" placeholder="e.g. A-R2" /></label>
-      <label class="field"><span class="field-label">Capacity</span><input type="number" id="rackCapacity" placeholder="e.g. 25" /></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn secondary" id="rackModalCancel">Cancel</button><button type="submit" class="btn primary">Add</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="overlay" id="storeModalOverlay" hidden>
-  <div class="modal fade-in" style="max-width:340px">
-    <div class="modal-head"><span class="modal-title">Store sample</span><button class="btn ghost icon-only" id="storeModalClose">✕</button></div>
-    <form id="storeForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Rack *</span><select required id="storeRackSelect"></select></label>
-      <label class="field"><span class="field-label">Position *</span><input required id="storePosition" placeholder="e.g. B1" /></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn secondary" id="storeModalCancel">Cancel</button><button type="submit" class="btn primary">Store</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="overlay" id="supplierModalOverlay" hidden>
-  <div class="modal fade-in" style="max-width:340px">
-    <div class="modal-head"><span class="modal-title">Add supplier</span><button class="btn ghost icon-only" id="supplierModalClose">✕</button></div>
-    <form id="supplierForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Name *</span><input required id="spName" placeholder="e.g. MedSupply KSA" /></label>
-      <label class="field"><span class="field-label">Contact</span><input id="spContact" placeholder="phone or email" /></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn secondary" id="supplierModalCancel">Cancel</button><button type="submit" class="btn primary">Add</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="overlay" id="itemModalOverlay" hidden>
-  <div class="modal fade-in" style="max-width:360px">
-    <div class="modal-head"><span class="modal-title">Add inventory item</span><button class="btn ghost icon-only" id="itemModalClose">✕</button></div>
-    <form id="itemForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Name *</span><input required id="itName" placeholder="e.g. TaqPath COVID-19 Kit" /></label>
-      <label class="field"><span class="field-label">Category</span><input id="itCategory" placeholder="e.g. PCR Reagent" /></label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <label class="field"><span class="field-label">Quantity</span><input type="number" id="itQuantity" value="0" /></label>
-        <label class="field"><span class="field-label">Reorder Level</span><input type="number" id="itReorder" value="5" /></label>
-      </div>
-      <label class="field"><span class="field-label">Branch</span><input id="itBranch" placeholder="e.g. LB010 Suways, Jazan" /></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn secondary" id="itemModalCancel">Cancel</button><button type="submit" class="btn primary">Add</button></div>
-    </form>
-  </div>
-</div>
-
-<div class="overlay" id="poModalOverlay" hidden>
-  <div class="modal fade-in" style="max-width:360px">
-    <div class="modal-head"><span class="modal-title">New purchase order</span><button class="btn ghost icon-only" id="poModalClose">✕</button></div>
-    <form id="poForm"><div class="modal-body">
-      <label class="field"><span class="field-label">Item *</span><select required id="poItemSelect"></select></label>
-      <label class="field"><span class="field-label">Supplier</span><select id="poSupplierSelect"><option value="">—</option></select></label>
-      <label class="field"><span class="field-label">Quantity *</span><input required type="number" min="1" id="poQuantity" /></label>
-    </div>
-    <div class="modal-foot"><button type="button" class="btn secondary" id="poModalCancel">Cancel</button><button type="submit" class="btn primary">Create order</button></div>
-    </form>
-  </div>
-</div>
-
+</div><!-- /lisAppShell -->
 
 <script src="qrlis.js"></script>
 </body>
